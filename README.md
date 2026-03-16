@@ -49,16 +49,10 @@ Pour un fichier `llms.txt` conforme à [llmstxt.org](https://llmstxt.org/) :
 ## Structure du projet
 
 ```
-llms-txt-downloader/
-├── py_utils/
-│   ├── llms2md.py          # Script principal
-│   └── __init__.py         # Fichier pour package Python
+llms.txt_downloader
+├── llms2md.py              # Script principal
 ├── README.md               # Ce fichier
-├── LICENSE                 # Licence MIT
-├── requirements.txt        # Dépendances Python
-└── .github/                # Templates GitHub
-    ├── ISSUE_TEMPLATE.md
-    └── PULL_REQUEST_TEMPLATE.md
+└── requirements.txt        # Dépendances Python
 ```
 
 ## Contribution
