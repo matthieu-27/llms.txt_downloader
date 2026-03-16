@@ -3,7 +3,7 @@ import os
 import re
 from urllib.parse import urljoin, urlparse
 
-import requests
+import requests  # type: ignore
 
 
 def normalize_dirname(title):
@@ -27,7 +27,7 @@ def create_directory_structure(url, base_dir):
     return full_path
 
 
-def download_md_files(input_url):
+def download_md_files(input_url, output_dir=".llms2md"):
     """Télécharge et organise les fichiers .md selon la structure demandée"""
     try:
         # Télécharger le fichier source
@@ -40,10 +40,14 @@ def download_md_files(input_url):
         if not first_line.startswith("# "):
             raise ValueError("Le fichier doit commencer par un titre H1")
 
-        # Créer le dossier racine
-        root_dir = normalize_dirname(first_line)
-        os.makedirs(root_dir, exist_ok=True)
-        print(f"Dossier racine créé: {root_dir}")
+        # Créer le dossier racine (output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Dossier racine créé: {output_dir}")
+        os.chdir(output_dir)
+
+        created_dir = normalize_dirname(first_line)
+        os.makedirs(created_dir, exist_ok=True)
+        print(f"Dossier racine créé: {created_dir}")
 
         # Extraire les liens et leurs descriptions
         base_url = input_url.rsplit("/", 1)[0] + "/"
@@ -53,7 +57,7 @@ def download_md_files(input_url):
         for name, url, desc in links:
             try:
                 # Créer l'arborescence de répertoires
-                file_path = create_directory_structure(url, root_dir)
+                file_path = create_directory_structure(url, created_dir)
 
                 # Télécharger le fichier
                 file_response = requests.get(url)
@@ -68,7 +72,7 @@ def download_md_files(input_url):
                 print(f"Erreur avec {url}: {e}")
 
         # Créer le fichier llms.txt local avec liens relatifs
-        local_llms_path = os.path.join(root_dir, "llms.txt")
+        local_llms_path = os.path.join(created_dir, "llms.txt")
         with open(local_llms_path, "w", encoding="utf-8") as f:
             # Écrire le titre H1
             f.write(first_line + "\n\n")
@@ -76,7 +80,7 @@ def download_md_files(input_url):
             # Réécrire les liens avec chemins relatifs
             for name, url, desc in links:
                 relative_path = os.path.relpath(
-                    create_directory_structure(url, root_dir), root_dir
+                    create_directory_structure(url, created_dir), created_dir
                 )
                 f.write(f"- [{name}]({relative_path}): {desc}\n")
 
@@ -91,6 +95,12 @@ if __name__ == "__main__":
         description="Organise les fichiers .md depuis un llms.txt distant"
     )
     parser.add_argument("input_url", help="URL du fichier llms.txt source")
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Répertoire de sortie (par défaut: .llms2md)",
+        default=".llms2md",
+    )
     args = parser.parse_args()
 
-    download_md_files(args.input_url)
+    download_md_files(args.input_url, args.output)
