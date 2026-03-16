@@ -30,7 +30,7 @@ pip install -r requirements.txt
 ## Utilisation
 
 ```bash
-python py_utils/llms2md.py https://example.com/llms.txt
+python llms.txt_downloader/llms2md.py https://example.com/llms.txt
 ```
 
 ### Exemple de sortie
