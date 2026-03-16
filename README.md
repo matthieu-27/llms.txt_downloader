@@ -38,7 +38,7 @@ python llms.txt_downloader/llms2md.py https://example.com/llms.txt
 Pour un fichier `llms.txt` conforme à [llmstxt.org](https://llmstxt.org/) :
 
 ```bash
-.ai_conf/
+.llms2md/
 ├── llms.txt
 └── <project-name>/
     ├── SKILL.md
