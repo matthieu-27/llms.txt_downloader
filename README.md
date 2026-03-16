@@ -52,6 +52,7 @@ Pour un fichier `llms.txt` conforme à [llmstxt.org](https://llmstxt.org/) :
 llms.txt_downloader
 ├── llms2md.py              # Script principal
 ├── README.md               # Ce fichier
+├── LICENSE                 # License
 └── requirements.txt        # Dépendances Python
 ```
 
