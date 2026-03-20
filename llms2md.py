@@ -14,9 +14,15 @@ def normalize_dirname(title):
 
 def extract_md_links(text, base_url):
     """Extrait les liens Markdown et retourne les URLs absolues et leurs descriptions"""
-    pattern = r"-\s*\[(.*?)\]\((.*?\.md)\):\s*(.*)"
+    pattern = r"-\s*\[(.*?)\]\((.*?)\):\s*(.*)"
     matches = re.findall(pattern, text)
-    return [(name, urljoin(base_url, url.strip()), desc) for name, url, desc in matches]
+    results = []
+    for name, url, desc in matches:
+        # Ajoute .md si absent dans l'URL
+        if not url.lower().endswith('.md'):
+            url = url + '.md'
+        results.append((name, urljoin(base_url, url.strip()), desc))
+    return results
 
 
 def create_directory_structure(url, base_dir):
@@ -27,13 +33,45 @@ def create_directory_structure(url, base_dir):
     return full_path
 
 
-def download_md_files(input_url, output_dir=".llms2md"):
-    """Télécharge et organise les fichiers .md selon la structure demandée"""
+def try_download_url(url, max_retries=2):
+    """Tente de télécharger une URL avec plusieurs stratégies"""
+    strategies = [
+        # Stratégie 1: URL directe
+        lambda u: u,
+
+        # Stratégie 2: URL avec .md ajouté
+        lambda u: u if u.lower().endswith('.md') else u + '.md',
+
+        # Stratégie 3: URL avec /docs/overview.md ajouté
+        lambda u: u.rstrip('/') + '/docs/overview.md',
+    ]
+
+    for attempt in range(max_retries):
+        for strategy in strategies:
+            try:
+                current_url = strategy(url)
+                response = requests.get(current_url, timeout=10)
+                if response.status_code == 200:
+                    return response, current_url
+            except requests.RequestException:
+                continue
+
+    return None, url
+
+
+def download_md_files(input_path, output_dir=".llms2md"):
+    """Télécharge et organise les fichiers .md depuis une URL ou un fichier local"""
     try:
-        # Télécharger le fichier source
-        response = requests.get(input_url)
-        response.raise_for_status()
-        content = response.text
+        # Lire le contenu depuis une URL ou un fichier local
+        if input_path.startswith(('http://', 'https://')):
+            response = requests.get(input_path)
+            response.raise_for_status()
+            content = response.text
+            base_url = input_path.rsplit("/", 1)[0] + "/"
+        else:
+            with open(input_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            base_url = os.path.dirname(os.path.abspath(input_path)) + "/"
 
         # Extraire le titre H1
         first_line = content.split("\n")[0]
@@ -49,25 +87,43 @@ def download_md_files(input_url, output_dir=".llms2md"):
         os.makedirs(created_dir, exist_ok=True)
         print(f"Dossier racine créé: {created_dir}")
 
+        # Sites avec conventions spéciales (à étendre si nécessaire)
+        SPECIAL_SITES = {
+            'github.com': {
+                'url_transform': lambda u: u.replace('/blob/', '/raw/')
+            }
+        }
+
         # Extraire les liens et leurs descriptions
-        base_url = input_url.rsplit("/", 1)[0] + "/"
         links = extract_md_links(content, base_url)
+        processed_links = []
 
         # Télécharger chaque fichier .md
         for name, url, desc in links:
             try:
-                # Créer l'arborescence de répertoires
-                file_path = create_directory_structure(url, created_dir)
+                # Appliquer les transformations spécifiques au site
+                parsed_url = urlparse(url)
+                if parsed_url.netloc in SPECIAL_SITES:
+                    url = SPECIAL_SITES[parsed_url.netloc]['url_transform'](
+                        url)
 
-                # Télécharger le fichier
-                file_response = requests.get(url)
-                file_response.raise_for_status()
+                # Télécharger avec stratégie de fallback
+                response, final_url = try_download_url(url)
 
-                # Sauvegarder le fichier
-                with open(file_path, "wb") as f:
-                    f.write(file_response.content)
-                print(f"Téléchargé: {file_path}")
+                if response:
+                    # Créer l'arborescence de répertoires
+                    file_path = create_directory_structure(
+                        final_url, created_dir)
 
+                    # Sauvegarder le fichier
+                    with open(file_path, "wb") as f:
+                        f.write(response.content)
+                    print(f"Téléchargé: {file_path}")
+
+                    # Conserver le lien traité
+                    processed_links.append((name, final_url, desc))
+                else:
+                    print(f"Échec du téléchargement: {url}")
             except Exception as e:
                 print(f"Erreur avec {url}: {e}")
 
@@ -78,10 +134,12 @@ def download_md_files(input_url, output_dir=".llms2md"):
             f.write(first_line + "\n\n")
 
             # Réécrire les liens avec chemins relatifs
-            for name, url, desc in links:
+            for name, url, desc in processed_links:
                 relative_path = os.path.relpath(
-                    create_directory_structure(url, created_dir), created_dir
-                )
+                    create_directory_structure(url, created_dir), created_dir)
+                # Supprime .md si présent dans le chemin relatif pour le fichier local
+                if relative_path.lower().endswith('.md'):
+                    relative_path = relative_path[:-3]
                 f.write(f"- [{name}]({relative_path}): {desc}\n")
 
         print(f"Fichier llms.txt local créé: {local_llms_path}")
@@ -92,9 +150,10 @@ def download_md_files(input_url, output_dir=".llms2md"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Organise les fichiers .md depuis un llms.txt distant"
-    )
-    parser.add_argument("input_url", help="URL du fichier llms.txt source")
+        description=
+        "Organise les fichiers .md depuis un llms.txt (URL ou fichier local)")
+    parser.add_argument("input_path",
+                        help="URL ou chemin du fichier llms.txt source")
     parser.add_argument(
         "-o",
         "--output",
@@ -103,4 +162,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    download_md_files(args.input_url, args.output)
+    download_md_files(args.input_path, args.output)
