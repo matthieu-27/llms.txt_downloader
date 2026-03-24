@@ -80,6 +80,6 @@ Distribué sous la licence MIT. Voir [LICENSE](LICENSE) pour plus d'informations
 
 ## Contact
 
-Votre Nom - [@votre_twitter](https://twitter.com/votre_twitter) - votre.email@example.com
+Couderc Matthieu - [@votre_twitter](https://twitter.com/votre_twitter) - mcouderc27@gmail.com
 
 Lien du projet : [https://github.com/matthieu-27/llms-txt-downloader](https://github.com/matthieu-27/llms-txt-downloader)
